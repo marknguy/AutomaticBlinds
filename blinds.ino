@@ -15,7 +15,7 @@
  *  you can also do http://<ip_address>/allon or http://<ip_address>/alloff and it will
  *  use the default on position of 180 and off position of 20 and duration of 2000ms.
  *  
- *  Created by Mark Nguyen.  Last modified: 20mar2016
+ *  Created by Mark Nguyen.  Last modified: 24apr2016
  */
 
 #include <ESP8266WiFi.h>
@@ -26,10 +26,14 @@ const char* ssid = "mySSID";
 const char* password = "myPassword";
 Servo myservo;
 boolean status[4] = {false,false,false,false};     // open = true, closed = false
-const char* openPosS = "180";      // adjust this as needed for your servo
-const char* closePosS = "020";   // adjust this as needed for your servo
+const char* openPosS = "150";      // adjust this as needed for your servo
+const char* closePosS = "110";   // adjust this as needed for your servo
+const char* stillPosS = "130";   // adjust this as needed for your servo
 int openPos = atoi(openPosS);
 int closePos = atoi(closePosS);   
+int stillPos = atoi(stillPosS);
+int stillPosA[4] = {130,125,130,134};   // since every servo is different, this value calibrates the still position
+
 
 // Create an instance of the server
 // specify the port to listen on as an argument
@@ -74,7 +78,7 @@ void setup() {
   // Print the IP address
 //  Serial.println(WiFi.localIP());
 
-  AllBlinds(closePos);  // initialize with all Blinds closed
+  Initialize(closePos);  // initialize with all Blinds closed
 
 }
 
@@ -146,9 +150,11 @@ void loop() {
       while (!myservo.attached()) {
         myservo.attach(gpio);
       }
-      myservo.write(pos);    
+      myservo.write(pos);                   // tell servo to go to position in variable 'pos'
       delay(duration);
-      while (myservo.attached()) {
+      myservo.write(stillPosA[gpio]);              // tell servo to go to position 
+      delay(2000);   // waits 2000ms for the servo to reach the position
+   while (myservo.attached()) {
         myservo.detach();
       }
       status[gpio]=false;
@@ -157,8 +163,10 @@ void loop() {
       while (!myservo.attached()) {
         myservo.attach(gpio);
       }
-      myservo.write(pos);    
+      myservo.write(pos);                   // tell servo to go to position in variable 'pos'
       delay(duration);
+      myservo.write(stillPosA[gpio]);              // tell servo to go to stop position 
+      delay(2000);   // waits 2000ms for the servo to reach the position
       while (myservo.attached()) {
         myservo.detach();
       }
@@ -167,12 +175,13 @@ void loop() {
     else {
           s += "Invalid request.  Trying to open blinds that are already OPEN or close blinds that are already CLOSED.<br><br>\n";
     }
-    delay(10);
     s += "Command sent to blinds:  " + order + "<br><br>\n";
     s += "Please hit BACK on your browser and REFRESH<br><br>\n";
     s += "</body></html>\n";
+    delay(500);
     client.print(s);
     client.stop();
+    delay(50);
     return;
   }  
 
@@ -192,8 +201,8 @@ void loop() {
       m+= "CLOSED\n";
     }
     m += "<TABLE BORDER=\"0\"><TR>\n";
-    m += "<TD><form method=\"get\" action=\"/gpio" + String(index) + "pos" + openPosS + "dur2000\"><button type=\"submit\" style='height:40px; width:100px'>Open</button></form></TD> \n";
-    m += "<TD><form method=\"get\" action=\"/gpio" + String(index) + "pos" + closePosS + "dur2000\"><button type=\"submit\" style='height:40px; width:100px'>Close</button></form></TD>\n";
+    m += "<TD><form method=\"get\" action=\"/gpio" + String(index) + "pos" + openPosS + "dur1000\"><button type=\"submit\" style='height:40px; width:100px'>Open</button></form></TD> \n";
+    m += "<TD><form method=\"get\" action=\"/gpio" + String(index) + "pos" + closePosS + "dur1000\"><button type=\"submit\" style='height:40px; width:100px'>Close</button></form></TD>\n";
     m += "</TR><BR></TABLE><BR>\n";
   }
 
@@ -206,7 +215,7 @@ void loop() {
   m += "</html>\n";
   client.print(m);
   client.stop();
-  delay(1);
+  delay(10);
 
 }
 
@@ -216,6 +225,8 @@ void AllBlinds(int pos) {
     if (status[servo] && pos < 125) {
       myservo.attach(servo);
       myservo.write(pos);              // tell servo to go to position in variable 'pos'
+      delay(1000);   // waits 2000ms for the servo to reach the position
+      myservo.write(stillPosA[servo]);              // tell servo to go to stop position 
       delay(2000);   // waits 2000ms for the servo to reach the position
       myservo.detach();
       status[servo]=false;
@@ -223,12 +234,47 @@ void AllBlinds(int pos) {
     else if (!status[servo] && pos > 145) {
       myservo.attach(servo);
       myservo.write(pos);              // tell servo to go to position in variable 'pos'
+      delay(1000);   // waits 2000ms for the servo to reach the position
+      myservo.write(stillPosA[servo]);              // tell servo to go to stop position
       delay(2000);   // waits 2000ms for the servo to reach the position
       myservo.detach();
       status[servo]=true;
     }
-    
-    delay(100);  
+    delay(200);  
   }
 }
 
+void Initialize(int pos) {
+  int servo = 0;
+  for (servo = 0; servo <= 3; servo += 1) { // goes from 0 to 3
+    if (pos < 125) {
+//      while (!myservo.attached()) {
+        myservo.attach(servo);
+//      }
+      myservo.write(pos);             // tell servo to go to position in variable 'pos'
+      delay(1000);                // waits 2000ms for the servo to reach the end
+      myservo.write(stillPosA[servo]);              // tell servo to go to stop position
+      delay(2000);                // waits 2000ms for the servo to reach the end
+//      myservo.write(160);          // reverse direction
+//      delay(600);                 // for half a second
+//      while (myservo.attached()) {
+        myservo.detach();
+//      }
+    }
+    else if (pos > 145) {
+//      while (!myservo.attached()) {
+        myservo.attach(servo);
+//      }
+      myservo.write(pos);              // tell servo to go to position in variable 'pos'
+      delay(1000);                     // waits 2000ms for the servo to reach the position
+      myservo.write(stillPosA[servo]);              // tell servo to go to stop position
+      delay(2000);                // waits 2000ms for the servo to reach the end
+//      myservo.write(110);          // reverse direction
+//      delay(600);                 // for half a second
+//      while (myservo.attached()) {
+        myservo.detach();
+//      }
+    }
+    delay(1000);  
+  }
+}
